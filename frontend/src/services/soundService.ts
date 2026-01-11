@@ -15,7 +15,7 @@ import type { Color } from '../shared/types';
 // TYPES
 // =============================================================================
 
-type SoundType = 'color' | 'success' | 'error' | 'eliminated' | 'timeout' | 'beep' | 'victory';
+type SoundType = 'color' | 'success' | 'error' | 'razz' | 'eliminated' | 'timeout' | 'beep' | 'victory';
 
 interface SoundConfig {
   frequency: number;

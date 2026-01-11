@@ -159,9 +159,9 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
   isShowingSequence,
   isInputPhase,
   playerSequence,
-  canSubmit,
+  canSubmit: _canSubmit, // Epic 5: Not used in implicit submission, kept for type compatibility
   onColorClick,
-  onSubmit,
+  onSubmit: _onSubmit, // Epic 5: Not used in implicit submission, kept for type compatibility
   disabled = false,
   secondsRemaining,
   timerColor,

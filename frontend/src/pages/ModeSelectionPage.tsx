@@ -5,11 +5,9 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
 
 export function ModeSelectionPage() {
   const navigate = useNavigate();
-  const { session } = useAuthStore();
 
   const handleTrainingMode = () => {
     // Navigate to solo training (no server needed)

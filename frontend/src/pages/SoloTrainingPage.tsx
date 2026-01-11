@@ -8,7 +8,6 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSoloTrainingStore } from '../store/soloTrainingStore';
 import { CircularSimonBoard } from '../components/game/CircularSimonBoard';
-import { soundService } from '../services/soundService';
 
 export function SoloTrainingPage() {
   const navigate = useNavigate();
@@ -21,7 +20,6 @@ export function SoloTrainingPage() {
     isShowingSequence,
     isInputPhase,
     isInputLocked,
-    cycleTimes,
     averageTime,
     fastestTime,
     isComplete,

@@ -172,7 +172,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
 
   // Epic 8: Get top 3 for podium
   const topThree = finalScores.slice(0, 3);
-  const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd (for visual podium layout)
 
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 relative overflow-hidden">
