@@ -6,7 +6,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 import { verifyToken } from '../utils/auth';
 import { gameService } from '../services/gameService';
 import { 
@@ -739,8 +739,8 @@ function showSimonSequence(io: Server, gameCode: string, gameState: SimonGameSta
   const { sequence, round } = gameState;
   
   // Epic 12: Calculate tempo based on cycle
-  let showDuration = SIMON_CONSTANTS.SHOW_COLOR_DURATION_MS;
-  let showGap = SIMON_CONSTANTS.SHOW_COLOR_GAP_MS;
+  let showDuration: number = SIMON_CONSTANTS.SHOW_COLOR_DURATION_MS;
+  let showGap: number = SIMON_CONSTANTS.SHOW_COLOR_GAP_MS;
   
   if (round >= 5) {
     // Cycle 5+: Fastest tempo

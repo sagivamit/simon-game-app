@@ -109,7 +109,7 @@ export function extendSequence(currentSequence: Color[]): Color[] {
 /**
  * Calculate timeout in seconds (Epic 6: Fixed 20 seconds)
  */
-export function calculateTimeoutSeconds(sequenceLength: number): number {
+export function calculateTimeoutSeconds(_sequenceLength: number): number {
   // Epic 6: Fixed 20-second timer per cycle
   return SIMON_CONSTANTS.TIMEOUT_MS / 1000;
 }
@@ -117,7 +117,7 @@ export function calculateTimeoutSeconds(sequenceLength: number): number {
 /**
  * Calculate timeout in milliseconds (Epic 6: Fixed 20 seconds)
  */
-export function calculateTimeoutMs(sequenceLength: number): number {
+export function calculateTimeoutMs(_sequenceLength: number): number {
   // Epic 6: Fixed 20-second timer per cycle
   return SIMON_CONSTANTS.TIMEOUT_MS;
 }
