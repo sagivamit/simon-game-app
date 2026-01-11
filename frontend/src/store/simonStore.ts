@@ -19,6 +19,7 @@ interface SimonStore {
   isShowingSequence: boolean;
   currentSequence: Color[];
   currentRound: number;
+  currentPlayerId: string | null; // Track current player for event filtering
   
   // Input phase state
   isInputPhase: boolean;
@@ -68,6 +69,7 @@ interface SimonStore {
   initializeListeners: () => void;
   cleanup: () => void;
   resetGame: () => void;
+  setCurrentPlayerId: (playerId: string) => void; // Set current player for event filtering
   addColorToSequence: (color: Color) => void;
   submitTap: (gameCode: string, playerId: string, color: Color) => void; // Implicit submission - validate each tap
   submitSequence: (gameCode: string, playerId: string) => void; // Keep for backward compatibility
@@ -90,6 +92,7 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
   isShowingSequence: false,
   currentSequence: [],
   currentRound: 1,
+  currentPlayerId: null,
   isInputPhase: false,
   playerSequence: [],
   canSubmit: false,
@@ -108,12 +111,12 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
   isGameOver: false,
   gameWinner: null,
   finalScores: [],
-      lastResult: null,
-      message: 'Waiting for game to start...',
-      isGameActive: false,
-      showGlitch: false,
-      showDuration: 600, // Epic 12: Base tempo
-      showGap: 200,     // Epic 12: Base gap
+  lastResult: null,
+  message: 'Waiting for game to start...',
+  isGameActive: false,
+  showGlitch: false,
+  showDuration: 600, // Epic 12: Base tempo
+  showGap: 200,      // Epic 12: Base gap
   
   // ==========================================================================
   // ACTIONS
@@ -376,16 +379,18 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
     socket.on('simon:player_sequence_complete', (data: { playerId: string; finishTime: number }) => {
       console.log('🏁 Player sequence complete:', data);
       
-      // Lock input for the player who completed (we'll check if it's us via session)
-      // The backend will emit this to all players, but we only lock if it's our playerId
-      // We need to get playerId from session/auth store, but for now, lock if we're in input phase
       const state = get();
-      if (state.isInputPhase && !state.isInputLocked) {
-        set({
-          isInputLocked: true,
-          canSubmit: true,
-          message: '✅ Sequence complete! Waiting for others...',
-        });
+      
+      // Only lock input if it's OUR player who completed
+      // Other players should continue to be able to input
+      if (state.currentPlayerId && data.playerId === state.currentPlayerId) {
+        if (state.isInputPhase && !state.isInputLocked) {
+          set({
+            isInputLocked: true,
+            canSubmit: true,
+            message: '✅ Sequence complete! Waiting for others...',
+          });
+        }
       }
     });
   },
@@ -424,6 +429,7 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
       isShowingSequence: false,
       currentSequence: [],
       currentRound: 1,
+      currentPlayerId: null,
       isInputPhase: false,
       playerSequence: [],
       canSubmit: false,
@@ -466,6 +472,13 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
       message: 'Waiting for game to start...',
       isGameActive: false,
     });
+  },
+  
+  /**
+   * Set current player ID for event filtering
+   */
+  setCurrentPlayerId: (playerId: string) => {
+    set({ currentPlayerId: playerId });
   },
   
   /**

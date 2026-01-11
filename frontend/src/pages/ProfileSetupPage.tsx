@@ -2,18 +2,23 @@
  * Profile Setup Page
  * 
  * First screen - collects user name and avatar before mode selection.
+ * Preserves invite link query parameters through the flow.
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProfileStore, AVATAR_OPTIONS } from '../store/profileStore';
 
 export function ProfileSetupPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { displayName, avatarId, setDisplayName, setAvatar, isProfileComplete } = useProfileStore();
   
   const [localName, setLocalName] = useState(displayName);
   const [localAvatarId, setLocalAvatarId] = useState(avatarId);
+  
+  // Check for invite link join code
+  const joinCode = searchParams.get('join');
   
   useEffect(() => {
     setLocalName(displayName);
@@ -33,7 +38,12 @@ export function ProfileSetupPage() {
   
   const handleContinue = () => {
     if (isProfileComplete()) {
-      navigate('/mode');
+      // If there's a join code, go directly to play page with the code
+      if (joinCode) {
+        navigate(`/play?join=${joinCode}`);
+      } else {
+        navigate('/mode');
+      }
     }
   };
   
@@ -43,6 +53,15 @@ export function ProfileSetupPage() {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm">
+        {/* Invite Link Notice */}
+        {joinCode && (
+          <div className="bg-green-500/20 border border-green-500/50 rounded-xl px-4 py-3 mb-6 text-center">
+            <span className="text-green-400 text-sm">
+              🎮 You've been invited to game <span className="font-mono font-bold">{joinCode}</span>
+            </span>
+          </div>
+        )}
+        
         {/* Title */}
         <h1 className="text-white text-2xl font-bold text-center mb-8">
           SET PROFILE

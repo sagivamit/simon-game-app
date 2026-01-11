@@ -28,6 +28,9 @@ export default {
         'neon-blue': '0 0 20px #00d9ff, 0 0 40px #00d9ff, 0 0 60px #00d9ff',
         'neon-glow': '0 0 30px currentColor, 0 0 60px currentColor',
       },
+      scale: {
+        '98': '0.98',
+      },
     },
   },
   plugins: [],

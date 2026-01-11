@@ -362,8 +362,8 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
         )}
       </div>
 
-      {/* Timer Display */}
-      {isInputPhase && secondsRemaining > 0 && (
+      {/* Timer Display - hide at 0 to avoid jarring flash */}
+      {isInputPhase && secondsRemaining > 0 && secondsRemaining <= 20 && (
         <div className="flex flex-col items-center">
           <div 
             className={`

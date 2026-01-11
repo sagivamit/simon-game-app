@@ -60,6 +60,7 @@ export function WaitingRoomPage() {
     submitTap,
     submitSequence,
     resetGame,
+    setCurrentPlayerId,
   } = useSimonStore();
   
   const [roomStatus, setRoomStatus] = useState<'waiting' | 'countdown' | 'active'>('waiting');
@@ -76,6 +77,11 @@ export function WaitingRoomPage() {
     // CRITICAL FIX: Connect socket FIRST, then initialize listeners
     const socket = socketService.connect();
     console.log('✅ Socket connected:', socket.connected);
+    
+    // Set current player ID for event filtering
+    if (playerId) {
+      setCurrentPlayerId(playerId);
+    }
     
     // Initialize Simon listeners AFTER socket is connected
     initializeListeners();
@@ -439,7 +445,7 @@ export function WaitingRoomPage() {
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <button
               onClick={copyGameCode}
-              className="bg-gray-100 hover:bg-gray-200 active:bg-gray-300 active:scale-95 text-gray-700 font-medium py-2.5 sm:py-2 px-4 rounded-lg transition-all duration-75 flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px]"
+              className="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 active:scale-95 text-gray-200 font-medium py-2.5 sm:py-2 px-4 rounded-lg transition-all duration-75 flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px] border border-slate-600"
               style={{ touchAction: 'manipulation' }}
               title="Copy game code"
             >
@@ -448,7 +454,7 @@ export function WaitingRoomPage() {
             
             <button
               onClick={copyInviteLink}
-              className="bg-blue-100 hover:bg-blue-200 active:bg-blue-300 active:scale-95 text-blue-700 font-medium py-2.5 sm:py-2 px-4 rounded-lg transition-all duration-75 flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px]"
+              className="bg-blue-600/20 hover:bg-blue-600/30 active:bg-blue-600/40 active:scale-95 text-blue-400 font-medium py-2.5 sm:py-2 px-4 rounded-lg transition-all duration-75 flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px] border border-blue-500/50"
               style={{ touchAction: 'manipulation' }}
               title="Copy invite link"
             >
@@ -457,7 +463,7 @@ export function WaitingRoomPage() {
             
             <button
               onClick={shareGame}
-              className="bg-green-100 hover:bg-green-200 active:bg-green-300 active:scale-95 text-green-700 font-medium py-2.5 sm:py-2 px-4 rounded-lg transition-all duration-75 flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px]"
+              className="bg-green-600/20 hover:bg-green-600/30 active:bg-green-600/40 active:scale-95 text-green-400 font-medium py-2.5 sm:py-2 px-4 rounded-lg transition-all duration-75 flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px] border border-green-500/50"
               style={{ touchAction: 'manipulation' }}
               title="Share with friends"
             >
@@ -468,18 +474,18 @@ export function WaitingRoomPage() {
         
         {/* Players List */}
         <div className="mb-6 sm:mb-8">
-          <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Players ({players.length})</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-200">Players ({players.length})</h2>
           <div className="space-y-2">
             {players.map(player => (
               <div 
                 key={player.id} 
-                className="bg-gray-100 rounded-lg p-3 flex items-center justify-between"
+                className="bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-center justify-between"
               >
-                <span className="font-medium">
+                <span className="font-medium text-gray-200">
                   {player.displayName}
-                  {player.id === playerId && ' (You)'}
+                  {player.id === playerId && <span className="text-neon-blue"> (You)</span>}
                 </span>
-                {player.isHost && <span className="text-yellow-500">👑 Host</span>}
+                {player.isHost && <span className="text-yellow-400">👑 Host</span>}
               </div>
             ))}
           </div>

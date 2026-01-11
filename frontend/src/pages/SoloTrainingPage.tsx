@@ -33,7 +33,8 @@ export function SoloTrainingPage() {
     if (!isActive && !isComplete) {
       startTraining();
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally run only on mount
 
   // Handle color click
   const handleColorClick = (color: typeof sequence[0]) => {
