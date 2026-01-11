@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 // Avatar mapping - 12 animal/face emojis
-const AVATARS = ['😀', '🤩', '😎', '🤠', '🐱', '🐶', '🐼', '🐸', '🦊', '🐵', '🐸', '👾'];
+const AVATARS = ['😀', '🤩', '😎', '🤠', '🐱', '🐶', '🐼', '🐸', '🦊', '🐵', '🐢', '👾'];
 
 interface ProfileState {
   displayName: string;
