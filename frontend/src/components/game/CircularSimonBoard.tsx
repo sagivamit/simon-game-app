@@ -119,7 +119,7 @@ const ColorWedge: React.FC<WedgeProps> = ({
       d={path}
       fill={fillColor}
       stroke="#000"
-      strokeWidth="5"
+      strokeWidth="3"
       onClick={disabled ? undefined : onClick}
       style={{
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -128,6 +128,7 @@ const ColorWedge: React.FC<WedgeProps> = ({
           ? `brightness(1.5) drop-shadow(0 0 15px ${wedgeColor.bright})` 
           : 'none',
         opacity: disabled ? 0.5 : 1,
+        outline: 'none', // Remove browser focus rectangle
       }}
       role="button"
       aria-label={`${color} button`}

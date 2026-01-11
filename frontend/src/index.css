@@ -39,6 +39,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Remove focus outline on SVG elements (game board) */
+svg path:focus,
+svg path:focus-visible {
+  outline: none !important;
+}
+
 /* Prevent double-tap zoom on buttons */
 button {
   touch-action: manipulation;
