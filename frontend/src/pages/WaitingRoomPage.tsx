@@ -24,6 +24,13 @@ export function WaitingRoomPage() {
   const gameCode = session?.gameCode;
   const playerId = session?.playerId;
   
+  // Redirect to profile setup if no session exists
+  useEffect(() => {
+    if (!session || !gameCode || !playerId) {
+      navigate('/', { replace: true });
+    }
+  }, [session, gameCode, playerId, navigate]);
+  
   const { 
     isGameActive, 
     currentSequence, 
