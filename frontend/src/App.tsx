@@ -4,7 +4,7 @@
  * Routes and navigation.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProfileSetupPage } from './pages/ProfileSetupPage';
 import { ModeSelectionPage } from './pages/ModeSelectionPage';
@@ -17,6 +17,12 @@ import { SplashScreen } from './components/ui/SplashScreen';
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
+
+  // Epic 1: Clear stale auth storage from localStorage on mount
+  // This is a one-time cleanup for users who had persisted sessions
+  useEffect(() => {
+    localStorage.removeItem('simon-auth-storage');
+  }, []);
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);

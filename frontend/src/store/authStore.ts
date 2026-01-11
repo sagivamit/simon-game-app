@@ -2,10 +2,13 @@
  * Auth Store
  * 
  * Manages player session state using Zustand.
+ * 
+ * Epic 1: Session is VOLATILE - not persisted to localStorage.
+ * Refreshing or closing the tab clears the session.
+ * This prevents stale gameCode issues when backend restarts.
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { Session } from '../shared/types';
 
 interface AuthState {
@@ -14,15 +17,9 @@ interface AuthState {
   clearSession: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      session: null,
-      setSession: (session) => set({ session }),
-      clearSession: () => set({ session: null }),
-    }),
-    {
-      name: 'simon-auth-storage', // LocalStorage key
-    }
-  )
-);
+// No persist middleware - session is volatile (in-memory only)
+export const useAuthStore = create<AuthState>((set) => ({
+  session: null,
+  setSession: (session) => set({ session }),
+  clearSession: () => set({ session: null }),
+}));
