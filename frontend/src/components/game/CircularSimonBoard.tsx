@@ -61,14 +61,8 @@ function createWedgePath(
   // Large arc flag (0 for arcs less than 180 degrees)
   const largeArc = endAngle - startAngle > 180 ? 1 : 0;
 
-  // Create SVG path
-  return `
-    M ${x1} ${y1}
-    A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${x2} ${y2}
-    L ${x3} ${y3}
-    A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4} ${y4}
-    Z
-  `;
+  // Create SVG path - single line for proper rendering
+  return `M ${x1} ${y1} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4} ${y4} Z`;
 }
 
 // =============================================================================
@@ -100,12 +94,12 @@ const ColorWedge: React.FC<WedgeProps> = ({
   innerRadius,
   outerRadius,
 }) => {
-  // Epic 11: Neon colors - deep black when inactive, vibrant neon when active
+  // Classic Simon colors - visible when dim, vibrant when active
   const colors: Record<Color, { dim: string; bright: string }> = {
-    green: { dim: '#001a0a', bright: '#00ff41' },   // Epic 11: Neon green
-    red: { dim: '#1a0000', bright: '#ff0040' },     // Epic 11: Neon red
-    yellow: { dim: '#1a1a00', bright: '#ffeb00' },  // Epic 11: Neon yellow
-    blue: { dim: '#000a1a', bright: '#00d9ff' },    // Epic 11: Neon blue
+    green: { dim: '#0d5c2e', bright: '#00ff41' },   // Visible dark green -> Neon green
+    red: { dim: '#7a1a1a', bright: '#ff0040' },     // Visible dark red -> Neon red
+    yellow: { dim: '#8a7a00', bright: '#ffeb00' },  // Visible dark yellow -> Neon yellow
+    blue: { dim: '#0a3d5c', bright: '#00d9ff' },    // Visible dark blue -> Neon blue
   };
 
   const wedgeColor = colors[color];
@@ -129,13 +123,11 @@ const ColorWedge: React.FC<WedgeProps> = ({
       onClick={disabled ? undefined : onClick}
       style={{
         cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'fill 0.1s ease, filter 0.1s ease, transform 0.1s ease',
+        transition: 'fill 0.15s ease, filter 0.15s ease',
         filter: isActive 
-          ? `brightness(1.8) drop-shadow(0 0 20px ${wedgeColor.bright}) drop-shadow(0 0 40px ${wedgeColor.bright}) drop-shadow(0 0 60px ${wedgeColor.bright}) drop-shadow(0 0 80px ${wedgeColor.bright})` 
-          : 'brightness(0.3)',
-        transformOrigin: `${centerX}px ${centerY}px`,
-        transform: isActive ? 'scale(1.05)' : 'scale(1)',
-        opacity: disabled ? 0.6 : 1,
+          ? `brightness(1.5) drop-shadow(0 0 15px ${wedgeColor.bright})` 
+          : 'none',
+        opacity: disabled ? 0.5 : 1,
       }}
       role="button"
       aria-label={`${color} button`}
