@@ -6,9 +6,10 @@
 
 import { useState, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ProfileSetupPage } from './pages/ProfileSetupPage';
+import { ModeSelectionPage } from './pages/ModeSelectionPage';
 import { EntryPage } from './pages/EntryPage';
 import { WaitingRoomPage } from './pages/WaitingRoomPage';
-import { ModeSelectionPage } from './pages/ModeSelectionPage';
 import { SoloTrainingPage } from './pages/SoloTrainingPage';
 import { LinkExpiredPage } from './pages/LinkExpiredPage';
 import { LandscapeWarning } from './components/ui/LandscapeWarning';
@@ -28,7 +29,8 @@ function App() {
       )}
       <LandscapeWarning />
       <Routes>
-        <Route path="/" element={<ModeSelectionPage />} />
+        {/* New flow: Profile Setup -> Mode Selection -> Training/Competition */}
+        <Route path="/" element={<ProfileSetupPage />} />
         <Route path="/mode" element={<ModeSelectionPage />} />
         <Route path="/training" element={<SoloTrainingPage />} />
         <Route path="/play" element={<EntryPage />} />
