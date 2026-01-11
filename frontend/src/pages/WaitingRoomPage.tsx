@@ -14,6 +14,7 @@ import { socketService } from '../services/socketService';
 import { soundService } from '../services/soundService';
 import { CircularSimonBoard } from '../components/game/CircularSimonBoard';
 import { GameOverScreen } from '../components/game/GameOverScreen';
+import { GlitchEffect } from '../components/game/GlitchEffect';
 import { Toast } from '../components/ui/Toast';
 import { MuteButton } from '../components/ui/MuteButton';
 
@@ -42,9 +43,14 @@ export function WaitingRoomPage() {
     isGameOver,
     gameWinner,
     finalScores,
+    isInputLocked,
+    showGlitch,
+    showDuration,
+    showGap,
     initializeListeners,
     cleanup,
     addColorToSequence,
+    submitTap,
     submitSequence,
     resetGame,
   } = useSimonStore();
@@ -152,6 +158,8 @@ export function WaitingRoomPage() {
       socket.off('player_joined');
       socket.off('player_left');
       socket.off('game_restarted');
+      socket.off('host_disconnected');
+      socket.off('host_transferred');
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameCode, playerId]); // Removed initializeListeners & cleanup - they're stable
@@ -278,17 +286,20 @@ export function WaitingRoomPage() {
     );
   }
 
-  // Render game board if active
+  // Epic 11: Render game board if active (Neon Dark Mode)
   if (roomStatus === 'active' && isGameActive) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center p-2 sm:p-4">
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center p-2 sm:p-4">
+        {/* Epic 14: Glitch Effect on errors */}
+        <GlitchEffect trigger={showGlitch} />
+        
         {/* Mute Button */}
         <MuteButton />
         
         <div className="flex flex-col items-center w-full max-w-md">
-          {/* Step 4: Scoreboard */}
+          {/* Epic 11: Scoreboard with neon styling */}
           {isGameActive && Object.keys(scores).length > 0 && (
-            <div className="bg-gray-800 rounded-xl sm:rounded-2xl p-2 sm:p-3 mb-3 w-full">
+            <div className="bg-dark-card border border-neon-blue/30 rounded-xl sm:rounded-2xl p-2 sm:p-3 mb-3 w-full">
               <div className="space-y-1">
                 {players.map((player) => {
                   const score = scores[player.id] || 0;
@@ -299,19 +310,19 @@ export function WaitingRoomPage() {
                     <div
                       key={player.id}
                       className={`flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 rounded ${
-                        isCurrentPlayer ? 'bg-blue-600' : 'bg-gray-700'
+                        isCurrentPlayer ? 'bg-neon-blue/20 border border-neon-blue' : 'bg-dark-surface border border-gray-800'
                       }`}
                     >
-                      <span className="text-white text-xs sm:text-sm flex items-center gap-1 sm:gap-2">
+                      <span className="text-gray-200 text-xs sm:text-sm flex items-center gap-1 sm:gap-2">
                         <span>{player.avatar}</span>
                         <span>{player.displayName}</span>
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-white text-xs sm:text-sm font-bold">
+                        <span className="text-neon-green text-xs sm:text-sm font-bold drop-shadow-[0_0_8px_rgba(0,255,65,0.6)]">
                           {score} pts
                         </span>
                         {hasSubmitted && isInputPhase && (
-                          <span className="text-green-400 text-xs">✓</span>
+                          <span className="text-neon-green text-xs drop-shadow-[0_0_8px_rgba(0,255,65,0.8)]">✓</span>
                         )}
                       </div>
                     </div>
@@ -321,11 +332,11 @@ export function WaitingRoomPage() {
             </div>
           )}
           
-          {/* Step 4: Eliminated Message */}
+          {/* Epic 11: Eliminated Message with neon styling */}
           {isEliminated && (
-            <div className="bg-red-500/20 border-2 border-red-500 rounded-xl sm:rounded-2xl p-3 mb-3 text-center w-full">
+            <div className="bg-neon-red/10 border-2 border-neon-red rounded-xl sm:rounded-2xl p-3 mb-3 text-center w-full shadow-neon-red">
               <div className="text-3xl mb-1">💀</div>
-              <div className="text-white text-base sm:text-lg font-bold">
+              <div className="text-neon-red text-base sm:text-lg font-bold drop-shadow-[0_0_10px_rgba(255,0,64,0.8)]">
                 Eliminated!
               </div>
             </div>
@@ -339,8 +350,17 @@ export function WaitingRoomPage() {
             playerSequence={playerSequence}
             canSubmit={canSubmit}
             lastResult={lastResult}
-            onColorClick={addColorToSequence}
+            onColorClick={(color) => {
+              // Epic 5: Implicit Submission - validate each tap instantly
+              if (gameCode && playerId) {
+                // Add to visual sequence first
+                addColorToSequence(color);
+                // Then submit tap for instant validation
+                submitTap(gameCode, playerId, color);
+              }
+            }}
             onSubmit={() => {
+              // Epic 5: This is no longer used (implicit submission), but keep for backward compatibility
               if (gameCode && playerId) {
                 submitSequence(gameCode, playerId);
               }
@@ -349,19 +369,22 @@ export function WaitingRoomPage() {
             secondsRemaining={secondsRemaining}
             timerColor={timerColor}
             isTimerPulsing={isTimerPulsing}
+            isInputLocked={isInputLocked}
+            showDuration={showDuration} // Epic 12: Pass tempo to component
+            showGap={showGap}           // Epic 12: Pass gap to component
           />
           
-          {/* Message Display */}
+          {/* Epic 11: Message Display with neon styling */}
           <div className="mt-6 text-center">
-            <p className="text-white text-lg font-medium">{message}</p>
+            <p className="text-gray-200 text-lg font-medium">{message}</p>
           </div>
           
-          {/* Players Status */}
-          <div className="mt-8 bg-white/10 backdrop-blur rounded-2xl p-4">
-            <h3 className="text-white font-bold mb-2">Players</h3>
+          {/* Epic 11: Players Status with neon styling */}
+          <div className="mt-8 bg-dark-card border border-neon-blue/20 backdrop-blur rounded-2xl p-4">
+            <h3 className="text-neon-blue font-bold mb-2 drop-shadow-[0_0_8px_rgba(0,217,255,0.6)]">Players</h3>
             <div className="grid grid-cols-2 gap-2">
               {players.map(player => (
-                <div key={player.id} className="text-white/80 text-sm">
+                <div key={player.id} className="text-gray-300 text-sm">
                   {player.displayName} {player.isHost && '👑'}
                 </div>
               ))}
@@ -372,21 +395,21 @@ export function WaitingRoomPage() {
     );
   }
   
-  // Render countdown
+  // Epic 11: Render countdown (Neon Dark Mode)
   if (roomStatus === 'countdown' && countdownValue !== null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-6xl sm:text-7xl md:text-9xl font-bold text-white mb-4">{countdownValue}</h1>
-          <p className="text-lg sm:text-xl md:text-2xl text-white/80">Get ready!</p>
+          <h1 className="text-6xl sm:text-7xl md:text-9xl font-bold text-neon-green mb-4 drop-shadow-[0_0_30px_rgba(0,255,65,0.8)]">{countdownValue}</h1>
+          <p className="text-lg sm:text-xl md:text-2xl text-gray-300">Get ready!</p>
         </div>
       </div>
     );
   }
   
-  // Render waiting room
+  // Epic 11: Render waiting room (Neon Dark Mode)
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-3 sm:p-4">
+    <div className="min-h-screen bg-dark-bg flex items-center justify-center p-3 sm:p-4">
       {/* Toast notification */}
       {toast && (
         <Toast
@@ -396,13 +419,13 @@ export function WaitingRoomPage() {
         />
       )}
       
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 max-w-md sm:max-w-xl md:max-w-2xl w-full">
-        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-2">Waiting Room</h1>
+      <div className="bg-dark-card border border-neon-blue/30 rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 max-w-md sm:max-w-xl md:max-w-2xl w-full">
+        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-2 text-neon-blue drop-shadow-[0_0_10px_rgba(0,217,255,0.6)]">Waiting Room</h1>
         
-        {/* Game Code Display with Share Buttons */}
+        {/* Epic 11: Game Code Display with neon styling */}
         <div className="mb-6 sm:mb-8">
-          <p className="text-center text-gray-600 mb-3 text-sm sm:text-base">
-            Game Code: <span className="font-mono font-bold text-xl sm:text-2xl text-purple-600">{gameCode}</span>
+          <p className="text-center text-gray-300 mb-3 text-sm sm:text-base">
+            Game Code: <span className="font-mono font-bold text-xl sm:text-2xl text-neon-green drop-shadow-[0_0_10px_rgba(0,255,65,0.8)]">{gameCode}</span>
           </p>
           
           {/* Invite Buttons */}

@@ -137,7 +137,8 @@ export interface SimonPlayerState {
 export interface PlayerSubmission {
   playerId: string;
   sequence: Color[];
-  timestamp: number;
+  timestamp: number; // Server timestamp
+  finishTime?: number; // Client performance.now() timestamp for millisecond accuracy
   isCorrect: boolean;
 }
 
@@ -170,6 +171,13 @@ export interface SimonServerEvents {
     timeoutMs: number;
   }) => void;
   
+  'simon:show_sequence': (data: {
+    round: number;
+    sequence: Color[];
+    showDuration?: number; // Epic 12: Tempo scaling
+    showGap?: number;      // Epic 12: Tempo scaling
+  }) => void;
+  
   'simon:show_color': (data: {
     color: Color;
     index: number;
@@ -191,6 +199,18 @@ export interface SimonServerEvents {
   'simon:input_correct': (data: {
     playerId: string;
     index: number;
+  }) => void;
+  
+  'simon:input_wrong': (data: {
+    playerId: string;
+    index: number;
+    expectedColor: Color;
+    actualColor: Color;
+  }) => void;
+  
+  'simon:player_sequence_complete': (data: {
+    playerId: string;
+    finishTime: number; // performance.now() timestamp
   }) => void;
   
   'simon:player_submitted': (data: {
@@ -237,6 +257,12 @@ export interface SimonClientEvents {
     playerId: string;
     color: Color;
     inputIndex: number;
+    finishTime?: number; // performance.now() timestamp when sequence completed
+  }) => void;
+  'simon:submit_sequence': (data: {
+    gameCode: string;
+    playerId: string;
+    sequence: Color[];
   }) => void;
 }
 
@@ -246,11 +272,19 @@ export interface SimonClientEvents {
 export const SIMON_CONSTANTS = {
   INITIAL_SEQUENCE_LENGTH: 1,
   SEQUENCE_INCREMENT: 1,
-  INITIAL_TIMEOUT_MS: 5000,          // 5 seconds
-  TIMEOUT_DECREMENT_MS: 250,          // Decrease by 250ms each round
-  MIN_TIMEOUT_MS: 1500,               // Minimum 1.5 seconds
-  SHOW_COLOR_DURATION_MS: 600,        // How long each color shows
-  SHOW_COLOR_GAP_MS: 200,             // Gap between colors
+  MAX_CYCLES: 5,                      // Epic 6: 5 cycles for competitive mode
+  TIMEOUT_MS: 20000,                  // Epic 6: 20 seconds per cycle
+  SHOW_COLOR_DURATION_MS: 600,        // Base: How long each color shows
+  SHOW_COLOR_GAP_MS: 200,             // Base: Gap between colors
+  // Epic 12: Tempo scaling - acceleration at cycles 3 & 5
+  TEMPO_CYCLE_3_DURATION_MS: 450,     // Cycle 3: Faster (450ms)
+  TEMPO_CYCLE_3_GAP_MS: 150,          // Cycle 3: Faster gap (150ms)
+  TEMPO_CYCLE_5_DURATION_MS: 300,     // Cycle 5: Fastest (300ms)
+  TEMPO_CYCLE_5_GAP_MS: 100,          // Cycle 5: Fastest gap (100ms)
+  // Legacy constants (kept for backward compatibility)
+  INITIAL_TIMEOUT_MS: 20000,          // Same as TIMEOUT_MS
+  TIMEOUT_DECREMENT_MS: 0,            // No decrement (fixed 20s)
+  MIN_TIMEOUT_MS: 20000,              // Same as TIMEOUT_MS
 } as const;
 
 // =============================================================================

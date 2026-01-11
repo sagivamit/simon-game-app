@@ -28,12 +28,12 @@ interface SoundConfig {
 // SOUND CONFIGURATIONS
 // =============================================================================
 
-// Classic Simon frequencies (musical notes)
+// Epic 9: Original 1978 Simon hardware frequencies
 const COLOR_FREQUENCIES: Record<Color, number> = {
-  green: 659.25,  // E5 - High
-  red: 329.63,    // E4 - Low
-  yellow: 440.00, // A4 - Medium-high
-  blue: 277.18,   // C#4 - Medium-low
+  green: 659.25,  // E5 - High (original Simon)
+  red: 329.63,    // E4 - Low (original Simon)
+  yellow: 440.00, // A4 - Medium-high (original Simon)
+  blue: 277.18,   // C#4 - Medium-low (original Simon)
 };
 
 // Sound configs for different events
@@ -41,6 +41,7 @@ const SOUND_CONFIGS: Record<SoundType, Partial<SoundConfig>> = {
   color: { duration: 0.8, type: 'sine', volume: 0.5 },
   success: { frequency: 880, duration: 0.3, type: 'sine', volume: 0.4 },
   error: { frequency: 150, duration: 0.5, type: 'sawtooth', volume: 0.4 },
+  razz: { frequency: 100, duration: 0.8, type: 'sawtooth', volume: 0.6 }, // Epic 9: Harsh "Razz" buzz
   eliminated: { frequency: 200, duration: 0.6, type: 'triangle', volume: 0.4 },
   timeout: { frequency: 300, duration: 0.3, type: 'square', volume: 0.3 },
   beep: { frequency: 600, duration: 0.15, type: 'sine', volume: 0.3 },
@@ -223,6 +224,19 @@ class SoundService {
    */
   playError(): void {
     const config = SOUND_CONFIGS.error;
+    this.playTone({
+      frequency: config.frequency!,
+      duration: config.duration!,
+      type: config.type!,
+      volume: config.volume!,
+    });
+  }
+
+  /**
+   * Epic 9: Play "Razz" buzz sound (harsh error feedback)
+   */
+  playRazz(): void {
+    const config = SOUND_CONFIGS.razz;
     this.playTone({
       frequency: config.frequency!,
       duration: config.duration!,

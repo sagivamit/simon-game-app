@@ -7,12 +7,27 @@
    Based on: .cursor/MOBILE_FIRST.md
    ============================================================================= */
 
+/* Epic 11: Neon Dark-Mode Theme */
+:root {
+  --neon-green: #00ff41;
+  --neon-red: #ff0040;
+  --neon-yellow: #ffeb00;
+  --neon-blue: #00d9ff;
+  --bg-black: #000000;
+  --bg-dark: #0a0a0a;
+  --text-neon: #ffffff;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
   font-family: system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* Epic 11: Deep black background */
+  background-color: var(--bg-black);
+  color: var(--text-neon);
   
   /* Prevent overscroll bounce (iOS pull-to-refresh) */
   overscroll-behavior: none;
@@ -64,4 +79,42 @@ textarea {
 
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
+}
+
+/* Epic 14: Motion blur transitions between cycles */
+@keyframes warp-transition {
+  0% {
+    filter: blur(0px);
+    transform: scale(1);
+  }
+  50% {
+    filter: blur(10px);
+    transform: scale(1.05);
+  }
+  100% {
+    filter: blur(0px);
+    transform: scale(1);
+  }
+}
+
+.animate-warp {
+  animation: warp-transition 0.5s ease-in-out;
+}
+
+/* Epic 14: Razz text jitter */
+@keyframes razz-jitter {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-2px, -2px); }
+  20% { transform: translate(2px, 2px); }
+  30% { transform: translate(-2px, 2px); }
+  40% { transform: translate(2px, -2px); }
+  50% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  70% { transform: translate(-2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  90% { transform: translate(-2px, -2px); }
+}
+
+.animate-razz {
+  animation: razz-jitter 0.3s;
 }

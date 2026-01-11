@@ -89,14 +89,26 @@ authRouter.post('/join-game', (req: Request, res: Response) => {
     // Normalize game code (remove dashes, uppercase)
     const gameCode = normalizeGameCode(rawGameCode);
     
+    // Epic 2: Check if room exists and hasn't expired
+    const room = gameService.getRoom(gameCode);
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    
+    // Epic 2: Check expiry (5 minutes)
+    const now = new Date();
+    if (room.expiresAt && now > room.expiresAt) {
+      return res.status(410).json({ error: 'Link expired' }); // 410 Gone
+    }
+    
     // Join room
-    const room = gameService.joinRoom(gameCode, { displayName, avatarId });
+    const joinedRoom = gameService.joinRoom(gameCode, { displayName, avatarId });
     const player = room.players[room.players.length - 1]; // Last added player
     
     // Create session
     const session: Session = {
       playerId: player.id,
-      gameCode: room.gameCode,
+      gameCode: joinedRoom.gameCode,
       displayName: player.displayName,
       avatarId: player.avatarId,
       isHost: false,
@@ -114,7 +126,7 @@ authRouter.post('/join-game', (req: Request, res: Response) => {
       session,
     };
     
-    console.log(`🏠 ${displayName} joined room ${gameCode} (${room.players.length}/4 players)`);
+    console.log(`🏠 ${displayName} joined room ${gameCode} (${joinedRoom.players.length}/4 players)`);
     
     res.status(200).json(response);
   } catch (error) {

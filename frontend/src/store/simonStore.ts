@@ -24,6 +24,8 @@ interface SimonStore {
   isInputPhase: boolean;
   playerSequence: Color[];
   canSubmit: boolean;
+  currentInputIndex: number; // Track which position in sequence we're at
+  isInputLocked: boolean; // Lock input after completion or error
   
   // Timer state (Step 3)
   timeoutAt: number | null;
@@ -56,13 +58,19 @@ interface SimonStore {
   // UI state
   message: string;
   isGameActive: boolean;
+  showGlitch: boolean; // Epic 14: Trigger glitch effect on error
+  
+  // Epic 12: Tempo scaling
+  showDuration: number; // Current show duration (ms)
+  showGap: number;      // Current gap duration (ms)
   
   // Actions
   initializeListeners: () => void;
   cleanup: () => void;
   resetGame: () => void;
   addColorToSequence: (color: Color) => void;
-  submitSequence: (gameCode: string, playerId: string) => void;
+  submitTap: (gameCode: string, playerId: string, color: Color) => void; // Implicit submission - validate each tap
+  submitSequence: (gameCode: string, playerId: string) => void; // Keep for backward compatibility
   clearPlayerSequence: () => void;
   startTimer: (timeoutAt: number, timeoutSeconds: number) => void;
   stopTimer: () => void;
@@ -85,6 +93,8 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
   isInputPhase: false,
   playerSequence: [],
   canSubmit: false,
+  currentInputIndex: 0,
+  isInputLocked: false,
   timeoutAt: null,
   timeoutSeconds: 0,
   secondsRemaining: 0,
@@ -98,9 +108,12 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
   isGameOver: false,
   gameWinner: null,
   finalScores: [],
-  lastResult: null,
-  message: 'Waiting for game to start...',
-  isGameActive: false,
+      lastResult: null,
+      message: 'Waiting for game to start...',
+      isGameActive: false,
+      showGlitch: false,
+      showDuration: 600, // Epic 12: Base tempo
+      showGap: 200,     // Epic 12: Base gap
   
   // ==========================================================================
   // ACTIONS
@@ -137,9 +150,13 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
       console.log(`📨 Received event: ${eventName}`, args);
     });
     
-    // Listen for sequence display
-    socket.on('simon:show_sequence', (data: { round: number; sequence: Color[] }) => {
+    // Listen for sequence display (Epic 12: Includes tempo info)
+    socket.on('simon:show_sequence', (data: { round: number; sequence: Color[]; showDuration?: number; showGap?: number }) => {
       console.log('🎨🎨🎨 Received show_sequence:', data);
+      
+      // Epic 12: Update tempo based on cycle
+      const duration = data.showDuration || 600; // Default to base tempo
+      const gap = data.showGap || 200; // Default to base gap
       
       set({
         currentRound: data.round,
@@ -147,6 +164,8 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
         isShowingSequence: true,
         message: `Round ${data.round} - Watch the sequence!`,
         isGameActive: true,
+        showDuration: duration, // Epic 12: Store tempo
+        showGap: gap,           // Epic 12: Store gap
       });
     });
     
@@ -168,6 +187,8 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
         isInputPhase: true,
         playerSequence: [],
         canSubmit: false,
+        currentInputIndex: 0,
+        isInputLocked: false,
         lastResult: null,
         message: 'Your turn! Click the colors in order',
       });
@@ -310,6 +331,62 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
     // Listen for input correct (Step 2)
     socket.on('simon:input_correct', (data: { playerId: string; index: number }) => {
       console.log('✅ Input correct:', data);
+      
+      set((state) => {
+        const newSequence = [...state.playerSequence, state.currentSequence[data.index]];
+        const isComplete = newSequence.length === state.currentSequence.length;
+        
+        return {
+          playerSequence: newSequence,
+          currentInputIndex: data.index + 1,
+          canSubmit: isComplete,
+          message: isComplete 
+            ? '✅ Sequence complete!' 
+            : `${newSequence.length} of ${state.currentSequence.length} colors`,
+        };
+      });
+    });
+    
+    // Listen for input wrong (Epic 5: Implicit Submission - instant feedback)
+    socket.on('simon:input_wrong', (data: { playerId: string; index: number; expectedColor: Color; actualColor: Color }) => {
+      console.log('❌ Input wrong:', data);
+      
+      // Epic 9: Trigger "Razz" immediately (harsh buzz)
+      soundService.playRazz();
+      
+      // Epic 9: Strong haptic feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200, 100, 200]); // Strong vibration pattern
+      }
+      
+      // Epic 14: Trigger glitch effect
+      set({
+        isInputLocked: true,
+        showGlitch: true,
+        message: `❌ Wrong! Expected ${data.expectedColor}, got ${data.actualColor}`,
+      });
+      
+      // Reset glitch after animation
+      setTimeout(() => {
+        set({ showGlitch: false });
+      }, 500);
+    });
+    
+    // Listen for sequence complete (Epic 5: Auto-lock on final correct tap)
+    socket.on('simon:player_sequence_complete', (data: { playerId: string; finishTime: number }) => {
+      console.log('🏁 Player sequence complete:', data);
+      
+      // Lock input for the player who completed (we'll check if it's us via session)
+      // The backend will emit this to all players, but we only lock if it's our playerId
+      // We need to get playerId from session/auth store, but for now, lock if we're in input phase
+      const state = get();
+      if (state.isInputPhase && !state.isInputLocked) {
+        set({
+          isInputLocked: true,
+          canSubmit: true,
+          message: '✅ Sequence complete! Waiting for others...',
+        });
+      }
     });
   },
   
@@ -332,6 +409,8 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
     socket.off('simon:game_finished');
     socket.off('simon:player_eliminated');
     socket.off('simon:input_correct');
+    socket.off('simon:input_wrong');
+    socket.off('simon:player_sequence_complete');
     
     // Stop timer (Step 3)
     if (timerInterval) {
@@ -348,6 +427,8 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
       isInputPhase: false,
       playerSequence: [],
       canSubmit: false,
+      currentInputIndex: 0,
+      isInputLocked: false,
       timeoutAt: null,
       timeoutSeconds: 0,
       secondsRemaining: 0,
@@ -379,6 +460,8 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
       isInputPhase: false,
       playerSequence: [],
       canSubmit: false,
+      currentInputIndex: 0,
+      isInputLocked: false,
       lastResult: null,
       message: 'Waiting for game to start...',
       isGameActive: false,
@@ -386,20 +469,56 @@ export const useSimonStore = create<SimonStore>((set, get) => ({
   },
   
   /**
-   * Add a color to the player's sequence
+   * Add a color to the player's sequence (for display only)
+   * Epic 5: Actual validation happens in submitTap
    */
   addColorToSequence: (color: Color) => {
+    // This is now just for visual feedback - validation happens server-side
     set((state) => {
-      const newPlayerSequence = [...state.playerSequence, color];
-      const canSubmit = newPlayerSequence.length === state.currentSequence.length;
+      if (state.isInputLocked) return state; // Don't update if locked
       
+      const newPlayerSequence = [...state.playerSequence, color];
       return {
         playerSequence: newPlayerSequence,
-        canSubmit,
-        message: canSubmit 
-          ? '✅ Sequence complete! Click Submit'
-          : `${newPlayerSequence.length} of ${state.currentSequence.length} colors`,
       };
+    });
+  },
+  
+  /**
+   * Submit a single tap (Epic 5: Implicit Submission)
+   * Validates instantly and auto-submits on final correct tap
+   */
+  submitTap: (gameCode: string, playerId: string, color: Color) => {
+    const state = get();
+    
+    if (state.isInputLocked || !state.isInputPhase || state.isShowingSequence) {
+      return; // Don't process if locked, not in input phase, or showing sequence
+    }
+    
+    const socket = socketService.getSocket();
+    if (!socket) {
+      console.error('No socket connection');
+      return;
+    }
+    
+    const inputIndex = state.currentInputIndex;
+    const isFinalTap = inputIndex === state.currentSequence.length - 1;
+    
+    // Record finish time using performance.now() for millisecond accuracy
+    const finishTime = isFinalTap ? performance.now() : undefined;
+    
+    console.log(`📤 Submitting tap ${inputIndex + 1}/${state.currentSequence.length}: ${color}`, {
+      finishTime,
+      isFinalTap,
+    });
+    
+    // Emit tap to server for instant validation
+    socket.emit('simon:submit_input', {
+      gameCode,
+      playerId,
+      color,
+      inputIndex,
+      finishTime,
     });
   },
   

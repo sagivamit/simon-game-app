@@ -461,12 +461,12 @@ function registerGameHandlers(io: Server, socket: SocketWithSession): void {
   });
   
   /**
-   * Simon: Submit input (single color in sequence) - For Step 4 elimination
-   * This is the old per-color input, keeping for Step 4+
+   * Simon: Submit input (single color in sequence) - Epic 5: Implicit Submission
+   * Validates each tap instantly and auto-submits on final correct tap
    */
-  socket.on('simon:submit_input', (data: { gameCode: string; playerId: string; color: Color; inputIndex: number }) => {
+  socket.on('simon:submit_input', (data: { gameCode: string; playerId: string; color: Color; inputIndex: number; finishTime?: number }) => {
     try {
-      const { gameCode, playerId, color, inputIndex } = data;
+      const { gameCode, playerId, color, inputIndex, finishTime } = data;
       
       // Verify room exists
       const room = gameService.getRoom(gameCode);
@@ -475,7 +475,7 @@ function registerGameHandlers(io: Server, socket: SocketWithSession): void {
       }
       
       // Get game state
-      const gameState = room.gameState as SimonGameState;
+      let gameState = room.gameState as SimonGameState;
       if (!gameState || gameState.gameType !== 'simon') {
         return;
       }
@@ -486,26 +486,53 @@ function registerGameHandlers(io: Server, socket: SocketWithSession): void {
         return;
       }
       
+      // Epic 5: Check if player already submitted (input locked)
+      if (gameState.submissions[playerId]) {
+        console.log(`⚠️ Player ${playerId} already submitted`);
+        return;
+      }
+      
+      // Get player info
+      const player = room.players.find(p => p.id === playerId);
+      const playerName = player?.displayName || 'Unknown';
+      
       // Validate input
       const isCorrect = validateInput(gameState, playerId, color, inputIndex);
+      const expectedColor = gameState.sequence[inputIndex];
       
       if (!isCorrect) {
-        // Wrong input - eliminate player
+        // Epic 5: Wrong input - emit instant feedback (Razz)
+        io.to(gameCode).emit('simon:input_wrong', {
+          playerId,
+          index: inputIndex,
+          expectedColor,
+          actualColor: color,
+        });
+        
+        // Eliminate player
         const newState = eliminatePlayer(gameState, playerId, gameState.round);
         gameService.updateGameState(gameCode, newState);
         
-        // Get player info
-        const player = room.players.find(p => p.id === playerId);
+        // Record wrong submission
+        newState.submissions[playerId] = {
+          playerId,
+          sequence: [], // Empty = wrong
+          timestamp: Date.now(),
+          isCorrect: false,
+        };
+        gameService.updateGameState(gameCode, newState);
         
         // Broadcast elimination
         io.to(gameCode).emit('simon:player_eliminated', {
           playerId,
-          playerName: player?.displayName || 'Unknown',
-          reason: 'wrong_color',
+          playerName,
+          reason: 'wrong_sequence',
         });
         
-        // Check if game should end
-        if (shouldGameEnd(newState)) {
+        // Check if all players have finished (submitted or eliminated)
+        if (haveAllPlayersSubmitted(newState)) {
+          processSimonRound(io, gameCode);
+        } else if (shouldGameEnd(newState)) {
           finishSimonGame(io, gameCode, newState, room);
         }
         
@@ -522,22 +549,48 @@ function registerGameHandlers(io: Server, socket: SocketWithSession): void {
         index: inputIndex,
       });
       
-      // Check if player completed the sequence
+      // Epic 5: Check if player completed the sequence (final correct tap)
       const updatedPlayerState = newState.playerStates[playerId];
       if (updatedPlayerState.currentInputIndex >= newState.sequence.length) {
         // Player completed this round!
-        console.log(`✅ Player ${playerId} completed round ${newState.round}`);
+        console.log(`✅ Player ${playerId} completed round ${newState.round} at ${finishTime || Date.now()}`);
         
-        // Check if all active players have completed
-        const allComplete = Object.values(newState.playerStates).every(state => 
-          state.status !== 'playing' || state.currentInputIndex >= newState.sequence.length
-        );
+        // Epic 5: Record submission with finish time (millisecond accuracy)
+        const serverTimestamp = Date.now();
+        newState.submissions[playerId] = {
+          playerId,
+          sequence: [...newState.sequence], // Full correct sequence
+          timestamp: serverTimestamp,
+          finishTime: finishTime, // Client performance.now() timestamp
+          isCorrect: true,
+        };
+        gameService.updateGameState(gameCode, newState);
         
-        if (allComplete) {
-          // All players completed - advance to next round
-          setTimeout(() => {
-            advanceSimonRound(io, gameCode);
-          }, 2000);
+        // Epic 5: Emit sequence complete event (auto-lock input)
+        io.to(gameCode).emit('simon:player_sequence_complete', {
+          playerId,
+          finishTime: finishTime || serverTimestamp,
+        });
+        
+        // Broadcast that player submitted
+        io.to(gameCode).emit('simon:player_submitted', {
+          playerId,
+          playerName,
+        });
+        
+        // Check if all active players have submitted
+        if (haveAllPlayersSubmitted(newState)) {
+          console.log(`✅ All players submitted! Processing round ${newState.round}...`);
+          
+          // Cancel timeout
+          const existingTimeout = simonTimeouts.get(gameCode);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+            simonTimeouts.delete(gameCode);
+          }
+          
+          // Process round
+          processSimonRound(io, gameCode);
         }
       }
     } catch (error) {
@@ -552,8 +605,19 @@ function registerGameHandlers(io: Server, socket: SocketWithSession): void {
 
 /**
  * Start countdown before game begins
+ * Epic 4: Includes ready-check to ensure all players are synced
  */
 function startCountdown(io: Server, gameCode: string): void {
+  const room = gameService.getRoom(gameCode);
+  if (!room) return;
+  
+  // Epic 4: Ready-check - ensure all players are connected
+  const connectedPlayers = room.players.filter(p => p.connected);
+  if (connectedPlayers.length === 0) {
+    console.error('❌ No connected players for countdown');
+    return;
+  }
+  
   gameService.updateRoomStatus(gameCode, 'countdown');
   
   let count = 3;
@@ -571,15 +635,15 @@ function startCountdown(io: Server, gameCode: string): void {
       // In future: Pass game type from client or room settings
       const gameType = 'simon'; // or 'color_race'
       
-      const room = gameService.getRoom(gameCode);
-      if (!room) return;
+      const currentRoom = gameService.getRoom(gameCode);
+      if (!currentRoom) return;
       
       if (gameType === 'simon') {
-        // Initialize Simon game
-        const gameState = initializeSimonGame(room.players);
+        // Epic 4: Initialize Simon game with seeded sequence (all players get same pattern)
+        const gameState = initializeSimonGame(currentRoom.players);
         gameService.updateGameState(gameCode, gameState);
         
-        console.log(`🎮 Simon started in room: ${gameCode}`);
+        console.log(`🎮 Simon started in room: ${gameCode} (${connectedPlayers.length} players synced)`);
         
         // Start showing sequence after brief delay
         setTimeout(() => {
@@ -587,7 +651,7 @@ function startCountdown(io: Server, gameCode: string): void {
         }, 500);
       } else {
         // Initialize Color Race game
-        const gameState = initializeColorRaceGame(room.players);
+        const gameState = initializeColorRaceGame(currentRoom.players);
         gameService.updateGameState(gameCode, gameState);
         
         // Start first round
@@ -669,22 +733,39 @@ function processColorRaceRound(
 
 /**
  * Show the Simon sequence to all players
+ * Epic 12: Applies tempo scaling (acceleration at cycles 3 & 5)
  */
 function showSimonSequence(io: Server, gameCode: string, gameState: SimonGameState): void {
   const { sequence, round } = gameState;
   
-  // Emit sequence start event
+  // Epic 12: Calculate tempo based on cycle
+  let showDuration = SIMON_CONSTANTS.SHOW_COLOR_DURATION_MS;
+  let showGap = SIMON_CONSTANTS.SHOW_COLOR_GAP_MS;
+  
+  if (round >= 5) {
+    // Cycle 5+: Fastest tempo
+    showDuration = SIMON_CONSTANTS.TEMPO_CYCLE_5_DURATION_MS;
+    showGap = SIMON_CONSTANTS.TEMPO_CYCLE_5_GAP_MS;
+  } else if (round >= 3) {
+    // Cycle 3-4: Accelerated tempo
+    showDuration = SIMON_CONSTANTS.TEMPO_CYCLE_3_DURATION_MS;
+    showGap = SIMON_CONSTANTS.TEMPO_CYCLE_3_GAP_MS;
+  }
+  // Cycles 1-2: Base tempo (already set)
+  
+  // Emit sequence start event with tempo info
   io.to(gameCode).emit('simon:show_sequence', {
     round,
     sequence,
+    showDuration, // Epic 12: Include tempo info
+    showGap,
   });
   
-  console.log(`🎨 Showing sequence for round ${round}: [${sequence.join(', ')}]`);
+  console.log(`🎨 Showing sequence for round ${round}: [${sequence.join(', ')}] (tempo: ${showDuration}ms/${showGap}ms)`);
   console.log(`📡 Emitted simon:show_sequence to room ${gameCode}`);
   
-  // Calculate total animation time
-  // Each color shows for SHOW_COLOR_DURATION_MS + GAP
-  const totalTime = sequence.length * (SIMON_CONSTANTS.SHOW_COLOR_DURATION_MS + SIMON_CONSTANTS.SHOW_COLOR_GAP_MS);
+  // Calculate total animation time with tempo
+  const totalTime = sequence.length * (showDuration + showGap);
   
   // After sequence completes, start input phase (Step 2 & Step 3)
   setTimeout(() => {
@@ -698,7 +779,7 @@ function showSimonSequence(io: Server, gameCode: string, gameState: SimonGameSta
       const currentState = room.gameState as SimonGameState;
       if (!currentState || currentState.gameType !== 'simon') return;
       
-      // Step 3: Calculate timeout based on sequence length
+      // Epic 6: Fixed 20-second timeout per cycle
       const timeoutSeconds = calculateTimeoutSeconds(currentState.sequence.length);
       const timeoutMs = calculateTimeoutMs(currentState.sequence.length);
       const now = Date.now();
@@ -893,22 +974,32 @@ function handleSimonTimeout(io: Server, gameCode: string): void {
 }
 
 /**
- * Finish Simon game and declare winner (Step 4: Competitive Scoring)
+ * Finish Simon game and declare winner (Epic 6 & 8: Competitive Scoring with Tie-Breakers)
  */
 function finishSimonGame(io: Server, gameCode: string, gameState: SimonGameState, room: any): void {
   console.log(`🏁 finishSimonGame called for ${gameCode}`);
   
-  // Step 4: Find winner by highest score
+  // Epic 6 & 8: Find winner by highest score, then by lowest average time (tie-breaker)
   const playerScores = Object.entries(gameState.scores)
     .map(([playerId, score]) => {
       const player = room.players.find((p: Player) => p.id === playerId);
+      // Epic 8: Calculate average time from submissions (for tie-breaker)
+      // For now, we'll use a placeholder - in full implementation, track cycle times
+      const averageTime = 0; // TODO: Calculate from cycle finish times
       return {
         playerId,
         name: player?.displayName || 'Unknown',
         score,
+        averageTime, // Epic 8: For tie-breaking
       };
     })
-    .sort((a, b) => b.score - a.score); // Sort by score descending
+    .sort((a, b) => {
+      // Epic 8: Sort by score (descending), then by average time (ascending) for tie-breaker
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return a.averageTime - b.averageTime; // Lower average time wins
+    });
   
   const winner = playerScores[0];
   
@@ -928,6 +1019,7 @@ function finishSimonGame(io: Server, gameCode: string, gameState: SimonGameState
 
 /**
  * Handle socket disconnect
+ * Epic 7: Host-drop termination logic
  */
 function handleDisconnect(io: Server, socket: SocketWithSession): void {
   const { playerId, gameCode, displayName } = socket;
@@ -938,6 +1030,36 @@ function handleDisconnect(io: Server, socket: SocketWithSession): void {
   }
   
   console.log(`⚠️ Disconnect detected: ${displayName} from room ${gameCode}`);
+  
+  const room = gameService.getRoom(gameCode);
+  if (!room) return;
+  
+  // Epic 7: Check if disconnecting player is the host
+  const player = room.players.find(p => p.id === playerId);
+  const isHost = player?.isHost || false;
+  
+  // Epic 7: If host disconnects during active game, terminate session for all
+  if (isHost && room.status === 'active') {
+    console.log(`💥 HOST DISCONNECTED during active game - terminating session`);
+    
+    // Terminate game for all players
+    io.to(gameCode).emit('host_disconnected', {
+      message: 'THE HOST HAS LEFT THE GAME. SESSION HAS TERMINATED.',
+    });
+    
+    // Delete room
+    gameService.deleteRoom(gameCode);
+    
+    // Clear all disconnect timeouts for this room
+    for (const [key, timeout] of disconnectTimeouts.entries()) {
+      if (key.startsWith(`${gameCode}:`)) {
+        clearTimeout(timeout);
+        disconnectTimeouts.delete(key);
+      }
+    }
+    
+    return;
+  }
   
   const timeoutKey = `${gameCode}:${playerId}`;
   
@@ -953,6 +1075,23 @@ function handleDisconnect(io: Server, socket: SocketWithSession): void {
     });
     
     console.log(`⏳ ${displayName} marked as disconnected (grace period started)`);
+    
+    // Epic 7: If host disconnects in waiting room, transfer host or terminate
+    const currentRoom = gameService.getRoom(gameCode);
+    if (currentRoom && isHost && currentRoom.status === 'waiting') {
+      // Host left in waiting room - transfer to next player or close room
+      if (currentRoom.players.length > 1) {
+        // Transfer host to next player
+        const nextHost = currentRoom.players.find(p => p.id !== playerId && p.connected);
+        if (nextHost) {
+          nextHost.isHost = true;
+          io.to(gameCode).emit('host_transferred', {
+            newHostId: nextHost.id,
+            newHostName: nextHost.displayName,
+          });
+        }
+      }
+    }
     
     // Set removal timeout
     const removalTimeout = setTimeout(() => {

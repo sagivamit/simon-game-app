@@ -45,11 +45,18 @@ export class GameService {
       lastActivity: new Date(),
     };
 
+    // Epic 1 & 2: Set session ID and 5-minute expiry
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes
+    const sessionId = uuidv4(); // Epic 1: Unique session identifier
+    
     const room: GameRoom = {
       gameCode,
+      sessionId, // Epic 1: Session ID
       players: [host],
       status: 'waiting',
-      createdAt: new Date(),
+      createdAt: now,
+      expiresAt, // Epic 2: 5-minute expiry
       gameState: null,
     };
 

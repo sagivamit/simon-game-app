@@ -45,12 +45,15 @@ export type RoomStatus =
 
 /**
  * Game room container
+ * Epic 1: Volatile single-session data (no persistence)
  */
 export interface GameRoom {
   gameCode: string;              // 6-char uppercase alphanumeric
+  sessionId: string;            // Epic 1: Unique session identifier
   players: Player[];             // Max 4 players
   status: RoomStatus;            // Lifecycle state
   createdAt: Date;               // For cleanup
+  expiresAt: Date;              // Epic 2: 5-minute expiry timestamp
   gameState: unknown;            // Game-specific state (defined in game.types.ts)
 }
 

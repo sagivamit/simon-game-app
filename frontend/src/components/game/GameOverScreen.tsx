@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { soundService } from '../../services/soundService';
+import { VictoryExplosion } from './VictoryExplosion';
 
 // =============================================================================
 // TYPES
@@ -169,54 +170,97 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
     }
   };
 
+  // Epic 8: Get top 3 for podium
+  const topThree = finalScores.slice(0, 3);
+  const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd (for visual podium layout)
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Confetti */}
-      {showConfetti && <Confetti />}
+    <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Epic 14: Victory Explosion (neon particles) */}
+      {isWinner && <VictoryExplosion trigger={showConfetti} />}
+      
+      {/* Epic 14: Confetti (fallback) */}
+      {showConfetti && !isWinner && <Confetti />}
       
       <div className="relative z-10 w-full max-w-md">
-        {/* Game Over Title */}
+        {/* Epic 11: Game Over Title with neon styling */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
-            🎉 GAME OVER 🎉
+          <h1 className="text-3xl sm:text-4xl font-bold text-neon-green mb-2 drop-shadow-[0_0_20px_rgba(0,255,65,0.8)]">
+            🎉 FINAL RESULTS 🎉
           </h1>
         </div>
 
-        {/* Winner Section */}
-        {winner && (
-          <div className="bg-gradient-to-br from-yellow-400/20 to-orange-500/20 border-2 border-yellow-400 rounded-2xl p-6 mb-4 text-center relative overflow-hidden">
-            {/* Glow effect */}
-            <div className="absolute inset-0 bg-yellow-400/10 animate-pulse" />
-            
-            <div className="relative z-10">
-              {/* Crown animation */}
-              <div className="text-5xl mb-2 animate-bounce">👑</div>
+        {/* Epic 8: 3-Tier Podium (Multiplayer only) */}
+        {!isSoloGame && topThree.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-end justify-center gap-2 mb-4" style={{ height: '200px' }}>
+              {/* 2nd Place */}
+              {topThree[1] && (
+                <div className="flex flex-col items-center" style={{ order: 0 }}>
+                  <div className="text-3xl mb-2">🥈</div>
+                  <div className="bg-dark-card border border-neon-blue/50 rounded-t-xl p-3 text-center w-20 shadow-neon-blue">
+                    <div className="text-neon-blue text-sm font-bold drop-shadow-[0_0_8px_rgba(0,217,255,0.6)]">
+                      {topThree[1].name}
+                    </div>
+                    <div className="text-neon-blue text-xs mt-1">{topThree[1].score} pts</div>
+                  </div>
+                  <div className="bg-neon-blue/30 h-16 w-20 rounded-b-xl"></div>
+                </div>
+              )}
               
-              <h2 className="text-2xl font-bold text-yellow-400 mb-2">
-                {isSoloGame ? 'GREAT JOB!' : 'WINNER!'}
-              </h2>
+              {/* 1st Place (Tallest) */}
+              {topThree[0] && (
+                <div className="flex flex-col items-center" style={{ order: 1 }}>
+                  <div className="text-4xl mb-2 animate-bounce">👑</div>
+                  <div className="bg-dark-card border-2 border-neon-green rounded-t-xl p-4 text-center w-24 shadow-neon-green">
+                    <div className="text-neon-green text-base font-bold drop-shadow-[0_0_10px_rgba(0,255,65,0.8)]">
+                      {topThree[0].name}
+                    </div>
+                    <div className="text-neon-green text-sm mt-1">{topThree[0].score} pts</div>
+                  </div>
+                  <div className="bg-neon-green/40 h-24 w-24 rounded-b-xl"></div>
+                </div>
+              )}
               
-              <div className="text-white text-xl font-semibold mb-1">
-                {winner.name}
-              </div>
-              
-              <div className="text-4xl font-bold text-yellow-300">
-                {animatedScore} <span className="text-lg">points</span>
-              </div>
-              
-              {isWinner && !isSoloGame && (
-                <div className="mt-2 text-green-400 text-sm font-semibold">
-                  ✨ That's YOU! ✨
+              {/* 3rd Place */}
+              {topThree[2] && (
+                <div className="flex flex-col items-center" style={{ order: 2 }}>
+                  <div className="text-3xl mb-2">🥉</div>
+                  <div className="bg-dark-card border border-neon-yellow/50 rounded-t-xl p-3 text-center w-20 shadow-neon-yellow">
+                    <div className="text-neon-yellow text-sm font-bold drop-shadow-[0_0_8px_rgba(255,235,0,0.6)]">
+                      {topThree[2].name}
+                    </div>
+                    <div className="text-neon-yellow text-xs mt-1">{topThree[2].score} pts</div>
+                  </div>
+                  <div className="bg-neon-yellow/30 h-12 w-20 rounded-b-xl"></div>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Scoreboard (Multiplayer only) */}
+        {/* Epic 11: Winner Section (Solo or if no podium) */}
+        {winner && (isSoloGame || finalScores.length < 3) && (
+          <div className="bg-dark-card border-2 border-neon-green rounded-2xl p-6 mb-4 text-center relative overflow-hidden shadow-neon-green">
+            <div className="relative z-10">
+              <div className="text-5xl mb-2 animate-bounce">👑</div>
+              <h2 className="text-2xl font-bold text-neon-green mb-2 drop-shadow-[0_0_10px_rgba(0,255,65,0.8)]">
+                {isSoloGame ? 'GREAT JOB!' : 'WINNER!'}
+              </h2>
+              <div className="text-gray-200 text-xl font-semibold mb-1">
+                {winner.name}
+              </div>
+              <div className="text-4xl font-bold text-neon-green drop-shadow-[0_0_15px_rgba(0,255,65,0.8)]">
+                {animatedScore} <span className="text-lg">points</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Epic 11: Full Scoreboard with neon styling */}
         {!isSoloGame && finalScores.length > 0 && (
-          <div className="bg-gray-800/80 rounded-2xl p-4 mb-4">
-            <h3 className="text-white font-bold text-center mb-3 text-sm uppercase tracking-wide">
+          <div className="bg-dark-card border border-neon-blue/30 rounded-2xl p-4 mb-4">
+            <h3 className="text-neon-blue font-bold text-center mb-3 text-sm uppercase tracking-wide drop-shadow-[0_0_8px_rgba(0,217,255,0.6)]">
               Final Standings
             </h3>
             
@@ -230,27 +274,27 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                     key={player.playerId}
                     className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
                       isCurrentPlayer
-                        ? 'bg-blue-600 scale-105'
+                        ? 'bg-neon-blue/20 border border-neon-blue scale-105'
                         : rank <= 3
-                          ? 'bg-gray-700'
-                          : 'bg-gray-700/50'
+                          ? 'bg-dark-surface border border-gray-800'
+                          : 'bg-dark-surface/50 border border-gray-800/50'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-xl w-8 text-center">
                         {getMedal(rank)}
                       </span>
-                      <span className="text-white font-medium">
+                      <span className="text-gray-200 font-medium">
                         {player.name}
-                        {isCurrentPlayer && <span className="text-xs ml-1 text-blue-200">(you)</span>}
+                        {isCurrentPlayer && <span className="text-xs ml-1 text-neon-blue">(you)</span>}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-bold">
+                      <span className="text-neon-green font-bold drop-shadow-[0_0_8px_rgba(0,255,65,0.6)]">
                         {player.score} pts
                       </span>
                       {player.isEliminated && (
-                        <span className="text-red-400 text-xs">💀</span>
+                        <span className="text-neon-red text-xs">💀</span>
                       )}
                     </div>
                   </div>
@@ -260,25 +304,25 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
           </div>
         )}
 
-        {/* Game Stats */}
-        <div className="bg-gray-800/60 rounded-xl p-4 mb-6">
+        {/* Epic 11: Game Stats with neon styling */}
+        <div className="bg-dark-card border border-neon-blue/20 rounded-xl p-4 mb-6">
           <div className="flex justify-around text-center">
             <div>
-              <div className="text-2xl font-bold text-white">{roundsPlayed}</div>
+              <div className="text-2xl font-bold text-neon-blue drop-shadow-[0_0_8px_rgba(0,217,255,0.6)]">{roundsPlayed}</div>
               <div className="text-gray-400 text-xs">Rounds</div>
             </div>
-            <div className="border-l border-gray-600" />
+            <div className="border-l border-gray-700" />
             <div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-neon-green drop-shadow-[0_0_8px_rgba(0,255,65,0.6)]">
                 {finalScores.find(s => s.playerId === currentPlayerId)?.score || 0}
               </div>
               <div className="text-gray-400 text-xs">Your Score</div>
             </div>
             {!isSoloGame && (
               <>
-                <div className="border-l border-gray-600" />
+                <div className="border-l border-gray-700" />
                 <div>
-                  <div className="text-2xl font-bold text-white">
+                  <div className="text-2xl font-bold text-neon-yellow drop-shadow-[0_0_8px_rgba(255,235,0,0.6)]">
                     #{finalScores.findIndex(s => s.playerId === currentPlayerId) + 1}
                   </div>
                   <div className="text-gray-400 text-xs">Your Rank</div>
@@ -288,30 +332,27 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Epic 11: Action Buttons with neon styling */}
         <div className="space-y-3">
-          {/* Play Again Button */}
           <button
             onClick={onPlayAgain}
-            className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-100 active:scale-95 text-lg flex items-center justify-center gap-2 shadow-lg"
+            className="w-full bg-neon-green/20 hover:bg-neon-green/30 active:bg-neon-green/40 border border-neon-green text-neon-green font-bold py-4 px-6 rounded-xl transition-all duration-100 active:scale-95 text-lg flex items-center justify-center gap-2 shadow-neon-green"
             style={{ touchAction: 'manipulation' }}
           >
             🔄 PLAY AGAIN
           </button>
 
-          {/* Home Button */}
           <button
             onClick={onGoHome}
-            className="w-full bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white font-bold py-4 px-6 rounded-xl transition-all duration-100 active:scale-95 text-lg flex items-center justify-center gap-2"
+            className="w-full bg-dark-surface hover:bg-gray-800 active:bg-gray-700 border border-gray-700 text-gray-300 font-bold py-4 px-6 rounded-xl transition-all duration-100 active:scale-95 text-lg flex items-center justify-center gap-2"
             style={{ touchAction: 'manipulation' }}
           >
             🏠 HOME
           </button>
 
-          {/* Share Button */}
           <button
             onClick={handleShare}
-            className="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-100 active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-neon-blue/20 hover:bg-neon-blue/30 active:bg-neon-blue/40 border border-neon-blue text-neon-blue font-bold py-3 px-6 rounded-xl transition-all duration-100 active:scale-95 flex items-center justify-center gap-2 shadow-neon-blue"
             style={{ touchAction: 'manipulation' }}
           >
             📤 SHARE SCORE

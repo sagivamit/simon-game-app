@@ -50,14 +50,22 @@ export function EntryPage() {
   const handleJoinGame = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(false);
+    setLoading(true);
 
     try {
       const response = await joinGame(displayName, avatarId, gameCode);
       setSession(response.session);
       navigate('/waiting');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to join game');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to join game';
+      setError(errorMessage);
+      
+      // Epic 2: Check if error is "Link expired" and navigate to expired page
+      if (errorMessage.toLowerCase().includes('expired') || errorMessage.toLowerCase().includes('410')) {
+        setTimeout(() => {
+          navigate('/expired');
+        }, 2000);
+      }
     } finally {
       setLoading(false);
     }
@@ -65,15 +73,15 @@ export function EntryPage() {
 
   if (!mode) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-3 sm:p-4">
-        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full">
-          <h1 className="text-3xl sm:text-4xl font-bold text-center mb-2">🎮 Simon Says</h1>
-          <p className="text-gray-600 text-center mb-6 sm:mb-8 text-sm sm:text-base">Color Race Edition</p>
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center p-3 sm:p-4">
+        <div className="bg-dark-card border border-neon-blue/30 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full">
+          <h1 className="text-3xl sm:text-4xl font-bold text-center mb-2 text-neon-green drop-shadow-[0_0_15px_rgba(0,255,65,0.8)]">🎮 Simon Says</h1>
+          <p className="text-gray-300 text-center mb-6 sm:mb-8 text-sm sm:text-base">Multiplayer Edition</p>
           
           <div className="space-y-3 sm:space-y-4">
             <button
               onClick={() => setMode('create')}
-              className="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 active:scale-98 text-white font-bold py-3 sm:py-4 px-6 rounded-lg sm:rounded-xl transition-all duration-75 text-base sm:text-lg min-h-[56px]"
+              className="w-full bg-neon-green/20 hover:bg-neon-green/30 active:bg-neon-green/40 border border-neon-green active:scale-98 text-neon-green font-bold py-3 sm:py-4 px-6 rounded-lg sm:rounded-xl transition-all duration-75 text-base sm:text-lg min-h-[56px] shadow-neon-green"
               style={{ touchAction: 'manipulation' }}
             >
               Create Game
@@ -81,7 +89,7 @@ export function EntryPage() {
             
             <button
               onClick={() => setMode('join')}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 active:scale-98 text-white font-bold py-3 sm:py-4 px-6 rounded-lg sm:rounded-xl transition-all duration-75 text-base sm:text-lg min-h-[56px]"
+              className="w-full bg-neon-blue/20 hover:bg-neon-blue/30 active:bg-neon-blue/40 border border-neon-blue active:scale-98 text-neon-blue font-bold py-3 sm:py-4 px-6 rounded-lg sm:rounded-xl transition-all duration-75 text-base sm:text-lg min-h-[56px] shadow-neon-blue"
               style={{ touchAction: 'manipulation' }}
             >
               Join Game
@@ -93,8 +101,8 @@ export function EntryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full">
+    <div className="min-h-screen bg-dark-bg flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-dark-card border border-neon-blue/30 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full">
         <button
           onClick={() => setMode(null)}
           className="text-gray-600 hover:text-gray-800 active:text-gray-900 mb-4 text-sm sm:text-base"
@@ -102,7 +110,7 @@ export function EntryPage() {
           ← Back
         </button>
         
-        <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-neon-blue drop-shadow-[0_0_10px_rgba(0,217,255,0.6)]">
           {mode === 'create' ? 'Create Game' : 'Join Game'}
         </h2>
         

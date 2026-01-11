@@ -22,11 +22,14 @@ interface CircularSimonBoardProps {
   canSubmit: boolean;
   lastResult: { isCorrect: boolean; playerName: string } | null;
   onColorClick: (color: Color) => void;
-  onSubmit: () => void;
+  onSubmit: () => void; // Keep for backward compatibility, but won't be used in implicit submission
   disabled?: boolean;
   secondsRemaining: number;
   timerColor: 'green' | 'yellow' | 'red';
   isTimerPulsing: boolean;
+  isInputLocked?: boolean; // Epic 5: Lock input after completion or error
+  showDuration?: number;   // Epic 12: Tempo scaling - show duration (ms)
+  showGap?: number;        // Epic 12: Tempo scaling - gap duration (ms)
 }
 
 // =============================================================================
@@ -97,12 +100,12 @@ const ColorWedge: React.FC<WedgeProps> = ({
   innerRadius,
   outerRadius,
 }) => {
-  // DIMMED base colors (darker when inactive) and VERY BRIGHT when active
+  // Epic 11: Neon colors - deep black when inactive, vibrant neon when active
   const colors: Record<Color, { dim: string; bright: string }> = {
-    green: { dim: '#1a7a28', bright: '#44ff66' },  // Dark green -> Neon green
-    red: { dim: '#8b1a1a', bright: '#ff4444' },    // Dark red -> Bright red
-    yellow: { dim: '#8b7a00', bright: '#ffff00' }, // Dark yellow -> Pure yellow
-    blue: { dim: '#0a3d6b', bright: '#44aaff' },   // Dark blue -> Bright blue
+    green: { dim: '#001a0a', bright: '#00ff41' },   // Epic 11: Neon green
+    red: { dim: '#1a0000', bright: '#ff0040' },     // Epic 11: Neon red
+    yellow: { dim: '#1a1a00', bright: '#ffeb00' },  // Epic 11: Neon yellow
+    blue: { dim: '#000a1a', bright: '#00d9ff' },    // Epic 11: Neon blue
   };
 
   const wedgeColor = colors[color];
@@ -128,8 +131,8 @@ const ColorWedge: React.FC<WedgeProps> = ({
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'fill 0.1s ease, filter 0.1s ease, transform 0.1s ease',
         filter: isActive 
-          ? `brightness(1.5) drop-shadow(0 0 30px ${wedgeColor.bright}) drop-shadow(0 0 60px ${wedgeColor.bright})` 
-          : 'brightness(1)',
+          ? `brightness(1.8) drop-shadow(0 0 20px ${wedgeColor.bright}) drop-shadow(0 0 40px ${wedgeColor.bright}) drop-shadow(0 0 60px ${wedgeColor.bright}) drop-shadow(0 0 80px ${wedgeColor.bright})` 
+          : 'brightness(0.3)',
         transformOrigin: `${centerX}px ${centerY}px`,
         transform: isActive ? 'scale(1.05)' : 'scale(1)',
         opacity: disabled ? 0.6 : 1,
@@ -163,6 +166,9 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
   secondsRemaining,
   timerColor,
   isTimerPulsing,
+  isInputLocked = false,
+  showDuration: propShowDuration = 600, // Epic 12: Tempo from props
+  showGap: propShowGap = 200,           // Epic 12: Gap from props
 }) => {
   const [activeColor, setActiveColor] = useState<Color | null>(null);
 
@@ -241,10 +247,9 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
     
     console.log(`🎨 ANIMATION START: Round ${currentRound}, Length: ${sequenceLength}, Colors:`, sequenceToShow);
 
-    // CRITICAL: These MUST match backend SIMON_CONSTANTS in game.types.ts
-    // Backend: SHOW_COLOR_DURATION_MS = 600, SHOW_COLOR_GAP_MS = 200
-    const SHOW_DURATION = 600;  // How long each color stays lit
-    const SHOW_GAP = 200;       // Gap between colors (all dark)
+    // Epic 12: Use tempo from props (updated from backend event)
+    const SHOW_DURATION = propShowDuration;  // Dynamic tempo based on cycle
+    const SHOW_GAP = propShowGap;            // Dynamic gap based on cycle
 
     let currentIndex = 0;
     let timeoutId: ReturnType<typeof setTimeout>;
@@ -308,11 +313,12 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
       setActiveColor(null);
       setSequenceIndex(-1);
     };
-  }, [isShowingSequence, sequence, round]); // Dependencies: re-run when any of these change
+  }, [isShowingSequence, sequence, round, propShowDuration, propShowGap]); // Epic 12: Include tempo in dependencies
 
-  // Handle color button click
+  // Handle color button click (Epic 5: Implicit Submission)
   const handleColorClick = (color: Color) => {
-    if (disabled || isShowingSequence || !isInputPhase) return;
+    // Epic 5: Lock input if already locked, or if not in input phase
+    if (disabled || isShowingSequence || !isInputPhase || isInputLocked) return;
 
     // 🔊 PLAY COLOR TONE (short click sound)
     soundService.playColorClick(color);
@@ -323,6 +329,8 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
 
     setActiveColor(color);
     setTimeout(() => setActiveColor(null), 150);
+    
+    // Epic 5: Call onColorClick which will trigger submitTap for instant validation
     onColorClick(color);
   };
 
@@ -339,19 +347,19 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
 
   return (
     <div className="game-area flex flex-col items-center gap-3 w-full">
-      {/* Round Display */}
+      {/* Epic 11: Round Display with neon styling */}
       <div className="text-center">
-        <h2 className="text-xl sm:text-2xl font-bold text-white mb-1">
+        <h2 className="text-xl sm:text-2xl font-bold text-neon-green mb-1 drop-shadow-[0_0_10px_rgba(0,255,65,0.8)]">
           Round {round}
         </h2>
         {isShowingSequence ? (
-          <div className="bg-yellow-500/20 border border-yellow-500 rounded-lg px-4 py-2 animate-pulse">
-            <p className="text-yellow-400 font-bold text-base">
+          <div className="bg-neon-yellow/10 border border-neon-yellow rounded-lg px-4 py-2 animate-pulse shadow-neon-yellow">
+            <p className="text-neon-yellow font-bold text-base drop-shadow-[0_0_8px_rgba(255,235,0,0.8)]">
               👀 MEMORIZE THE PATTERN!
             </p>
           </div>
         ) : (
-          <p className="text-xs sm:text-sm text-gray-300">
+          <p className="text-xs sm:text-sm text-gray-400">
             {disabled 
               ? '👻 Spectating...' 
               : isInputPhase
@@ -388,12 +396,12 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
           className="w-full h-auto"
           style={{ touchAction: 'manipulation' }}
         >
-          {/* Background circle */}
+          {/* Epic 11: Deep black background */}
           <circle
             cx={centerX}
             cy={centerY}
             r={outerRadius + 5}
-            fill="#1a1a1a"
+            fill="#000000"
           />
 
           {/* Colored wedges */}
@@ -403,7 +411,7 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
               color={wedge.color}
               isActive={activeColor === wedge.color}
               onClick={() => handleColorClick(wedge.color)}
-              disabled={disabled || isShowingSequence || !isInputPhase}
+              disabled={disabled || isShowingSequence || !isInputPhase || isInputLocked}
               startAngle={wedge.start}
               endAngle={wedge.end}
               centerX={centerX}
@@ -413,14 +421,15 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
             />
           ))}
 
-          {/* Center hub */}
+          {/* Epic 11: Center hub with neon border */}
           <circle
             cx={centerX}
             cy={centerY}
             r={innerRadius - 2}
-            fill="#1a1a1a"
-            stroke="#333"
-            strokeWidth="3"
+            fill="#000000"
+            stroke="#00ff41"
+            strokeWidth="2"
+            opacity="0.5"
           />
 
           {/* Center content - shows sequence counter during playback, or SIMON text */}
@@ -466,9 +475,9 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
         </svg>
       </div>
 
-      {/* Player Sequence Display */}
+      {/* Epic 11: Player Sequence Display with neon styling */}
       {isInputPhase && playerSequence.length > 0 && (
-        <div className="bg-gray-700/80 rounded-lg p-2 w-full max-w-[min(85vw,320px)]">
+        <div className="bg-dark-card/80 border border-neon-blue/30 rounded-lg p-2 w-full max-w-[min(85vw,320px)]">
           <div className="flex justify-center items-center gap-1 min-h-[28px]">
             {playerSequence.map((color, i) => (
               <span key={i} className="text-xl">
@@ -482,28 +491,19 @@ export const CircularSimonBoard: React.FC<CircularSimonBoardProps> = ({
         </div>
       )}
 
-      {/* Submit Button */}
+      {/* Epic 5 & 11: Status indicator with neon styling */}
       {isInputPhase && (
-        <button
-          onClick={() => {
-            if (canSubmit && 'vibrate' in navigator) {
-              navigator.vibrate(100);
-            }
-            onSubmit();
-          }}
-          disabled={!canSubmit}
-          style={{ touchAction: 'manipulation' }}
-          className={`
-            w-full max-w-[min(85vw,320px)] px-6 py-3 rounded-xl font-bold text-base
-            min-h-[56px]
-            transition-all duration-100
-            ${canSubmit 
-              ? 'bg-green-500 hover:bg-green-600 active:bg-green-700 text-white cursor-pointer shadow-lg active:scale-95' 
-              : 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50'}
-          `}
-        >
-          {canSubmit ? '✅ SUBMIT' : `⏳ ${playerSequence.length}/${sequence.length}`}
-        </button>
+        <div className="w-full max-w-[min(85vw,320px)] px-6 py-3 rounded-xl text-center">
+          {isInputLocked ? (
+            <div className="text-neon-green font-bold text-base drop-shadow-[0_0_10px_rgba(0,255,65,0.8)]">
+              ✅ Sequence Complete!
+            </div>
+          ) : (
+            <div className="text-gray-400 text-sm">
+              {playerSequence.length}/{sequence.length} colors
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

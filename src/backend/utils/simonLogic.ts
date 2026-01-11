@@ -19,6 +19,7 @@ import { COLORS, SIMON_CONSTANTS } from '@shared/types';
 
 /**
  * Initialize a new Simon game state
+ * Epic 4: Uses seeded sequence generation for synchronization
  */
 export function initializeSimonGame(players: Player[]): SimonGameState {
   const playerStates: Record<string, SimonPlayerState> = {};
@@ -33,7 +34,10 @@ export function initializeSimonGame(players: Player[]): SimonGameState {
     };
   });
   
-  // Generate first sequence (1 color for round 1)
+  // Epic 4: Set seed based on current time (all players will use same seed)
+  setSequenceSeed(Date.now());
+  
+  // Generate first sequence (1 color for round 1) - Epic 4: Seeded
   const initialSequence = generateSequence(SIMON_CONSTANTS.INITIAL_SEQUENCE_LENGTH);
   
   // Initialize scores (Step 4)
@@ -49,7 +53,7 @@ export function initializeSimonGame(players: Player[]): SimonGameState {
     round: 1,
     playerStates,
     currentShowingIndex: 0,
-    timeoutMs: calculateTimeoutMs(SIMON_CONSTANTS.INITIAL_SEQUENCE_LENGTH), // ✅ 17 seconds for round 1!
+    timeoutMs: SIMON_CONSTANTS.TIMEOUT_MS, // Epic 6: Fixed 20 seconds per cycle
     timeoutAt: null,        // Step 3: Set when input phase begins
     timerStartedAt: null,   // Step 3: Set when input phase begins
     scores,                 // Step 4: Player scores
@@ -63,14 +67,27 @@ export function initializeSimonGame(players: Player[]): SimonGameState {
 // SEQUENCE GENERATION
 // =============================================================================
 
+// Epic 4: Seeded random number generator for synchronized sequences
+let sequenceSeed = Date.now();
+
+function setSequenceSeed(seed: number): void {
+  sequenceSeed = seed;
+}
+
+function seededRandom(): number {
+  // Simple LCG (Linear Congruential Generator)
+  sequenceSeed = (sequenceSeed * 9301 + 49297) % 233280;
+  return sequenceSeed / 233280;
+}
+
 /**
- * Generate a random color sequence of specified length
+ * Epic 4: Generate a seeded random color sequence (all players get same pattern)
  */
 export function generateSequence(length: number): Color[] {
   const sequence: Color[] = [];
   
   for (let i = 0; i < length; i++) {
-    const randomIndex = Math.floor(Math.random() * COLORS.length);
+    const randomIndex = Math.floor(seededRandom() * COLORS.length);
     sequence.push(COLORS[randomIndex]);
   }
   
@@ -78,10 +95,10 @@ export function generateSequence(length: number): Color[] {
 }
 
 /**
- * Add one more color to existing sequence
+ * Epic 4: Add one more color to existing sequence (using seeded random)
  */
 export function extendSequence(currentSequence: Color[]): Color[] {
-  const randomIndex = Math.floor(Math.random() * COLORS.length);
+  const randomIndex = Math.floor(seededRandom() * COLORS.length);
   return [...currentSequence, COLORS[randomIndex]];
 }
 
@@ -90,18 +107,19 @@ export function extendSequence(currentSequence: Color[]): Color[] {
 // =============================================================================
 
 /**
- * Calculate timeout in seconds based on sequence length
- * Formula: 15 + (sequenceLength × 2) seconds
+ * Calculate timeout in seconds (Epic 6: Fixed 20 seconds)
  */
 export function calculateTimeoutSeconds(sequenceLength: number): number {
-  return 15 + (sequenceLength * 2);
+  // Epic 6: Fixed 20-second timer per cycle
+  return SIMON_CONSTANTS.TIMEOUT_MS / 1000;
 }
 
 /**
- * Calculate timeout in milliseconds based on sequence length
+ * Calculate timeout in milliseconds (Epic 6: Fixed 20 seconds)
  */
 export function calculateTimeoutMs(sequenceLength: number): number {
-  return calculateTimeoutSeconds(sequenceLength) * 1000;
+  // Epic 6: Fixed 20-second timer per cycle
+  return SIMON_CONSTANTS.TIMEOUT_MS;
 }
 
 // =============================================================================
@@ -189,24 +207,24 @@ export function processRoundSubmissions(
     }
   });
   
-  // Find fastest correct submission(s)
+  // Epic 6: Find fastest correct submission (single winner only)
   if (correctSubmissions.length > 0) {
-    // Sort by timestamp (earliest first)
-    const sorted = [...correctSubmissions].sort((a, b) => a.timestamp - b.timestamp);
-    const fastestTime = sorted[0].timestamp;
-    
-    // Check for ties (same millisecond)
-    const winners = sorted.filter(s => s.timestamp === fastestTime);
-    
-    // Award +1 point to all winners (handles ties)
-    winners.forEach(winner => {
-      updatedScores[winner.playerId] = (updatedScores[winner.playerId] || 0) + 1;
+    // Epic 5 & 6: Use finishTime (performance.now()) if available for millisecond accuracy
+    // Otherwise fall back to server timestamp
+    const sorted = [...correctSubmissions].sort((a, b) => {
+      const timeA = a.finishTime || a.timestamp;
+      const timeB = b.finishTime || b.timestamp;
+      return timeA - timeB;
     });
     
-    // Set round winner (first if tie)
+    // Epic 6: Award +1 point ONLY to the single fastest (no ties)
+    const fastestWinner = sorted[0];
+    updatedScores[fastestWinner.playerId] = (updatedScores[fastestWinner.playerId] || 0) + 1;
+    
+    // Set round winner
     roundWinner = {
-      playerId: winners[0].playerId,
-      score: updatedScores[winners[0].playerId],
+      playerId: fastestWinner.playerId,
+      score: updatedScores[fastestWinner.playerId],
     };
   }
   
@@ -243,14 +261,11 @@ export function haveAllPlayersSubmitted(gameState: SimonGameState): boolean {
  * Advance to the next round
  */
 export function advanceToNextRound(gameState: SimonGameState): SimonGameState {
-  // Extend sequence by one color
+  // Epic 4: Extend sequence by one color (using seeded generation)
   const newSequence = extendSequence(gameState.sequence);
   
-  // Calculate new timeout (decreases each round but has minimum)
-  const newTimeout = Math.max(
-    SIMON_CONSTANTS.MIN_TIMEOUT_MS,
-    gameState.timeoutMs - SIMON_CONSTANTS.TIMEOUT_DECREMENT_MS
-  );
+  // Epic 6: Fixed 20-second timeout per cycle (no decrement)
+  const newTimeout = SIMON_CONSTANTS.TIMEOUT_MS;
   
   // Reset all active players' input index for new round
   const updatedPlayerStates: Record<string, SimonPlayerState> = {};
@@ -304,7 +319,16 @@ export function eliminatePlayer(
  * Solo mode (1 total player): End only when that player is eliminated (0 active)
  * Multiplayer (2+ players): End when 1 or fewer active players remain
  */
+/**
+ * Check if game should end (Epic 6: After 5 cycles or only 1 player remaining)
+ */
 export function shouldGameEnd(gameState: SimonGameState): boolean {
+  // Epic 6: End after 5 cycles
+  if (gameState.round >= SIMON_CONSTANTS.MAX_CYCLES) {
+    return true;
+  }
+  
+  // Also end if only 1 or 0 players remaining
   const totalPlayers = Object.keys(gameState.playerStates).length;
   const activePlayers = Object.values(gameState.playerStates).filter(
     state => state.status === 'playing'
